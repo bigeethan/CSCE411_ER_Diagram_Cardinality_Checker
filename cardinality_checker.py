@@ -10,8 +10,6 @@ Step 7: Compare the two
 
 import nltk
 from nltk.tokenize import sent_tokenize, word_tokenize
-from nltk.corpus import stopwords
-import re
 
 # Download required NLTK data
 try:
