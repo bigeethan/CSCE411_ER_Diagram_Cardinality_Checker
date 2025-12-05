@@ -8,9 +8,14 @@ Step 6: Get the actual cardinality from the diagram
 Step 7: Compare the two
 '''
 
+import re
 import nltk
 from nltk.tokenize import sent_tokenize, word_tokenize
+from nltk.stem import WordNetLemmatizer
 
+# -----------------------------------------------------------------------------
+# NLTK setup
+# -----------------------------------------------------------------------------
 # Download required NLTK data
 try:
     nltk.data.find('corpora/stopwords')
@@ -22,10 +27,15 @@ try:
 except LookupError:
     nltk.download('punkt')
 
+# Some NLTK installs use punkt_tab; if missing, download it
 try:
     nltk.data.find('tokenizers/punkt_tab')
 except LookupError:
-    nltk.download('punkt_tab')
+    try:
+        nltk.download('punkt_tab')
+    except:
+        # not all NLTK versions have this; ignore if missing
+        pass
 
 try:
     nltk.data.find('taggers/averaged_perceptron_tagger')
@@ -33,10 +43,15 @@ except LookupError:
     nltk.download('averaged_perceptron_tagger')
 
 try:
-    nltk.data.find('taggers/averaged_perceptron_tagger_eng')
+    nltk.data.find('corpora/wordnet')
 except LookupError:
-    nltk.download('averaged_perceptron_tagger_eng')
+    nltk.download('wordnet')
 
+lemmatizer = WordNetLemmatizer()
+
+# -----------------------------------------------------------------------------
+# Keyword configuration
+# -----------------------------------------------------------------------------
 CARDINALITY_KEYWORDS = {
     'many': 'many',
     'several': 'many',
@@ -52,14 +67,27 @@ CARDINALITY_KEYWORDS = {
     'never': 'constraint',
 }
 
+# IMPORTANT: use base forms (lemmas) here
 RELATIONSHIP_VERBS = [
-    'has', 'have', 'offers', 'offer', 'teach', 'teaches', 'taught',
-    'contains', 'contain', 'includes', 'include', 'owns', 'own',
-    'manages', 'manage', 'works', 'work', 'belongs', 'belong',
-    'enrolls', 'enroll', 'takes', 'take', 'uses', 'use'
+    'have',
+    'offer',
+    'teach',
+    'contain',
+    'include',
+    'own',
+    'manage',
+    'work',
+    'belong',
+    'enroll',
+    'take',
+    'use',
+    'employ',
 ]
 
-def extract_cardinality_sentences(text):
+# -----------------------------------------------------------------------------
+# Text-side extraction
+# -----------------------------------------------------------------------------
+def extract_cardinality_sentences(text: str):
     sentences = sent_tokenize(text)
     cardinality_sentences = []
     
@@ -70,22 +98,34 @@ def extract_cardinality_sentences(text):
     
     return cardinality_sentences
 
-def extract_entities_and_verbs(sentence):
+
+def extract_entities_and_verbs(sentence: str):
+    """
+    Extract nouns (entities), verb surface forms, and verb lemmas
+    from a sentence. Only verbs whose lemma is in RELATIONSHIP_VERBS
+    are kept.
+    """
     tokens = word_tokenize(sentence)
     pos_tags = nltk.pos_tag(tokens)
     
     entities = []
-    verbs = []
+    verbs = []         # original verb tokens, e.g., "offers", "taught"
+    verb_lemmas = []   # normalized forms, e.g., "offer", "teach"
     
     for word, tag in pos_tags:
+        w = word.lower()
         if tag.startswith('NN'):
-            entities.append(word.lower())
+            entities.append(w)
         elif tag.startswith('VB'):
-            verbs.append(word.lower())
+            lemma = lemmatizer.lemmatize(w, 'v')
+            if lemma in RELATIONSHIP_VERBS:
+                verbs.append(w)
+                verb_lemmas.append(lemma)
     
-    return entities, verbs
+    return entities, verbs, verb_lemmas
 
-def identify_cardinality(sentence):
+
+def identify_cardinality(sentence: str):
     sentence_lower = sentence.lower()
     found_cardinalities = []
     
@@ -95,43 +135,52 @@ def identify_cardinality(sentence):
     
     return found_cardinalities
 
-def extract_relationships(text):
+
+def extract_relationships(text: str):
+    """
+    Return a list of relationship dicts:
+    {
+        'sentence': ...,
+        'entities': [...],
+        'verbs': [...],         # surface verb forms
+        'verb_lemmas': [...],   # normalized base forms
+        'cardinality_indicators': [(keyword, kind), ...]
+    }
+    """
     cardinality_sentences = extract_cardinality_sentences(text)
     relationships = []
     
     for sentence in cardinality_sentences:
-        entities, verbs = extract_entities_and_verbs(sentence)
+        entities, verbs, verb_lemmas = extract_entities_and_verbs(sentence)
         cardinalities = identify_cardinality(sentence)
         
-        relationship_verbs = [v for v in verbs if v in RELATIONSHIP_VERBS]
-        
-        if relationship_verbs and entities and cardinalities:
+        if verb_lemmas and entities and cardinalities:
             relationships.append({
                 'sentence': sentence,
                 'entities': entities,
-                'verbs': relationship_verbs,
+                'verbs': verbs,
+                'verb_lemmas': verb_lemmas,
                 'cardinality_indicators': cardinalities
             })
     
     return relationships
 
-text = """There are several colleges in the university. Each college has a name, location, and size. 
-A college offers many courses. Course#, name, and credit hours describe a course. 
-No two courses in any college have the same course#; likewise, no two courses have the same name. 
-The college also has several instructors. Instructors teach; that is why they are called instructors. 
-The same course is never taught by more than one instructor. Furthermore, instructors are capable of 
-teaching a variety of courses offered by the college. Instructors have unique employee IDs, and their 
-names, qualifications, and experience are also recorded."""
 
-cardinality_sentences = extract_cardinality_sentences(text)
+def summarize_text_cardinality(relationships_from_text):
+    """
+    For each verb lemma, aggregate cardinality indicators from the text.
+    Returns:
+      lemma -> {'one': count, 'many': count, 'constraint': count}
+    """
+    summary = {}
 
-print("\n" + "=" * 80)
-print("Cardinality Relationships:")
-print("=" * 80)
+    for rel in relationships_from_text:
+        for lemma in rel.get('verb_lemmas', []):
+            if lemma not in summary:
+                summary[lemma] = {'one': 0, 'many': 0, 'constraint': 0}
 
-relationships = extract_relationships(text)
-for i, rel in enumerate(relationships, 1):
-    print(f"\n{i}. Sentence: {rel['sentence']}")
-    print(f"   Entities: {', '.join(set(rel['entities']))}")
-    print(f"   Verbs: {', '.join(set(rel['verbs']))}")
-    print(f"   Cardinality: {', '.join([f'{k} ({v})' for k, v in rel['cardinality_indicators']])}")
+            for _, card in rel['cardinality_indicators']:
+                if card in summary[lemma]:
+                    summary[lemma][card] += 1
+
+    return summary
