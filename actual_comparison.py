@@ -1,21 +1,18 @@
+'''
+Generalized ER Diagram Comparison Tool
+Compares text descriptions with PlantUML diagrams for ANY domain
+'''
 from cardinality_checker import extract_relationships, summarize_text_cardinality, lemmatizer
 from plantUML_checker import parse_plantuml_relationships
 
+import sys
 
 def compare_text_and_plantuml(text_relationships, plantuml_relationships):
     """
     Compare the cardinality hints in the text vs the PlantUML diagram.
     """
-    # This summarize_text_cardinality comes from cardinality_checker
-    # and uses verb *lemmas* as keys.
     text_summary = summarize_text_cardinality(text_relationships)
     results = []
-
-    # Optional synonym mapping (lemmas only)
-    # employ -> have so we can reuse the "has several instructors" info.
-    VERB_SYNONYMS = {
-        'employ': 'have',
-    }
 
     for prel in plantuml_relationships:
         verb = prel['label_verb']
@@ -30,14 +27,13 @@ def compare_text_and_plantuml(text_relationships, plantuml_relationships):
         # Normalize PlantUML label verb to lemma
         v = verb.lower()
         lemma = lemmatizer.lemmatize(v, 'v')
-        lemma = VERB_SYNONYMS.get(lemma, lemma)
 
         verb_info = text_summary.get(lemma)
         if not verb_info:
             results.append({
                 'plantuml_rel': prel,
                 'status': 'no_text_info',
-                'details': f'No cardinality keywords in text for verb lemma {lemma!r}.'
+                'details': f'No cardinality keywords in text for verb lemma "{lemma}".'
             })
             continue
 
@@ -72,7 +68,7 @@ def compare_text_and_plantuml(text_relationships, plantuml_relationships):
             status = 'match'
             if not explanation_parts:
                 explanation_parts.append(
-                    "Text and diagram cardinalities look consistent at this coarse level."
+                    "Text and diagram cardinalities look consistent."
                 )
         else:
             status = 'mismatch'
@@ -89,25 +85,52 @@ def compare_text_and_plantuml(text_relationships, plantuml_relationships):
 
 
 if __name__ == "__main__":
-    text = """There are several colleges in the university. Each college has a name, location, and size. 
-    A college offers many courses. Course#, name, and credit hours describe a course. 
-    No two courses in any college have the same course#; likewise, no two courses have the same name. 
-    The college also has several instructors. Instructors teach; that is why they are called instructors. 
-    The same course is never taught by more than one instructor. Furthermore, instructors are capable of 
-    teaching a variety of courses offered by the college. Instructors have unique employee IDs, and their 
-    names, qualifications, and experience are also recorded."""
+    if len(sys.argv) >= 3:
+        # Read from command line arguments or files
+        arg1, arg2 = sys.argv[1], sys.argv[2]
+        
+        # Check if arguments are file paths
+        try:
+            with open(arg1, 'r', encoding='utf-8') as f:
+                text = f.read()
+        except FileNotFoundError:
+            text = arg1  # Treat as direct text input
+        
+        try:
+            with open(arg2, 'r', encoding='utf-8') as f:
+                plantuml = f.read()
+        except FileNotFoundError:
+            plantuml = arg2  # Treat as direct PlantUML input
+        
+        print("=" * 80)
+        print("Using custom input from command line arguments")
+        print("=" * 80)
+    else:
+        # Default example
+        print("=" * 80)
+        print("Using default example (University domain)")
+        print("To use your own: python actual_comparison.py text.txt diagram.puml")
+        print("=" * 80)
+        
+        text = """There are several colleges in the university. Each college has a name, location, and size. 
+        A college offers many courses. Course#, name, and credit hours describe a course. 
+        No two courses in any college have the same course#; likewise, no two courses have the same name. 
+        The college also has several instructors. Instructors teach; that is why they are called instructors. 
+        The same course is never taught by more than one instructor. Furthermore, instructors are capable of 
+        teaching a variety of courses offered by the college. Instructors have unique employee IDs, and their 
+        names, qualifications, and experience are also recorded."""
 
-    plantuml = """
-    @startuml
-    entity College
-    entity Course
-    entity Instructor
+        plantuml = """
+        @startuml
+        entity College
+        entity Course
+        entity Instructor
 
-    College ||--o{ Course : offers
-    College ||--o{ Instructor : employs
-    Instructor }o--|| Course : teaches
-    @enduml
-    """
+        College ||--o{ Course : offers
+        College ||--o{ Instructor : employs
+        Instructor }o--|| Course : teaches
+        @enduml
+        """
 
     print("\n" + "=" * 80)
     print("Cardinality Relationships from TEXT:")

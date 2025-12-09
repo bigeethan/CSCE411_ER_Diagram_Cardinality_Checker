@@ -12,23 +12,18 @@ PLANTUML_CARDINALITY_MAP = {
     '': None,  # no explicit cardinality
 }
 
-# Regex to match lines like:
-#   College ||--o{ Course : offers
-#   Instructor }o--|| Course : teaches
+# Simplified regex pattern that actually works
 REL_PATTERN = re.compile(
-    r"""
-    ^\s*
-    (?P<left_entity>[A-Za-z_][A-Za-z0-9_]*)        # left entity name
-    \s+
-    (?P<left_card>[|}{o]{0,2})                     # left cardinality symbols (optional)
-    [-.]+                                          # -- or .. or similar
-    (?P<right_card>[|}{o]{0,2})                    # right cardinality symbols (optional)
-    \s+
-    (?P<right_entity>[A-Za-z_][A-Za-z0-9_]*)       # right entity name
-    (?:\s*:\s*(?P<label>.+))?                      # optional label after colon
-    $
-    """,
-    re.VERBOSE
+    r'^\s*'
+    r'([A-Za-z_][A-Za-z0-9_]*)'  # left entity name
+    r'\s+'
+    r'([|}{o]*)'  # left cardinality symbols (optional)
+    r'--+'  # one or more dashes
+    r'([|}{o]*)'  # right cardinality symbols (optional)
+    r'\s+'
+    r'([A-Za-z_][A-Za-z0-9_]*)'  # right entity name
+    r'(?:\s*:\s*(.+))?'  # optional label after colon
+    r'\s*$'
 )
 
 def normalize_plantuml_cardinality(symbols: str):
@@ -38,6 +33,8 @@ def normalize_plantuml_cardinality(symbols: str):
 def parse_plantuml_relationships(plantuml_text: str):
     """
     Parse PlantUML ER relationships from text and return a list of dicts:
+
+    Ex.
     {
         'left_entity': 'College',
         'right_entity': 'Course',
@@ -53,18 +50,20 @@ def parse_plantuml_relationships(plantuml_text: str):
 
     for line in plantuml_text.splitlines():
         line = line.strip()
-        if not line or line.startswith("'"):  # skip empty/comment lines
+        
+        # Skip empty lines, comments, and directives
+        if not line or line.startswith("'") or line.startswith('@') or line.startswith('entity'):
             continue
 
         m = REL_PATTERN.match(line)
         if not m:
             continue
 
-        left_entity = m.group('left_entity')
-        right_entity = m.group('right_entity')
-        left_card_raw = m.group('left_card') or ''
-        right_card_raw = m.group('right_card') or ''
-        label = (m.group('label') or '').strip()
+        left_entity = m.group(1)
+        left_card_raw = m.group(2) or ''
+        right_card_raw = m.group(3) or ''
+        right_entity = m.group(4)
+        label = (m.group(5) or '').strip()
 
         left_card_norm = normalize_plantuml_cardinality(left_card_raw)
         right_card_norm = normalize_plantuml_cardinality(right_card_raw)

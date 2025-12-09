@@ -1,0 +1,9 @@
+@startuml
+entity College
+entity Course
+entity Instructor
+
+College ||--o{ Course : offers
+College ||--o{ Instructor : has
+Instructor }o--|| Course : teaches
+@enduml
