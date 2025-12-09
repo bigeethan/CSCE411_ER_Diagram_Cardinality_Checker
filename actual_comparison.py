@@ -2,14 +2,17 @@
 Generalized ER Diagram Comparison Tool
 Compares text descriptions with PlantUML diagrams for ANY domain
 '''
+
 from cardinality_checker import extract_relationships, summarize_text_cardinality, lemmatizer
 from plantUML_checker import parse_plantuml_relationships
 
 import sys
 
+
 def compare_text_and_plantuml(text_relationships, plantuml_relationships):
     """
     Compare the cardinality hints in the text vs the PlantUML diagram.
+    Works with ANY domain - no hardcoded synonyms or verb mappings.
     """
     text_summary = summarize_text_cardinality(text_relationships)
     results = []
@@ -40,28 +43,31 @@ def compare_text_and_plantuml(text_relationships, plantuml_relationships):
         plantuml_cards = {prel['left_cardinality'], prel['right_cardinality']}
         plantuml_cards.discard(None)
 
-        expected = set()
-        if verb_info['many'] > 0:
-            expected.add('many')
-        if verb_info['one'] > 0:
-            expected.add('one')
+        # Check if text suggests "many" cardinality
+        text_has_many = verb_info['many'] > 0
+        
+        # Check if text suggests "one" cardinality (but be more lenient)
+        # Only consider it "one" if there's a strong indicator and no "many"
+        text_has_one = verb_info['one'] > 0 and verb_info['many'] == 0
 
         many_like = {'one_or_many', 'zero_or_many'}
         one_like = {'one', 'zero_or_one'}
 
         ok = True
         explanation_parts = []
-        if 'many' in expected:
+        
+        if text_has_many:
             if not plantuml_cards & many_like:
                 ok = False
                 explanation_parts.append(
                     "Text suggests 'many', but diagram has no many-side cardinality."
                 )
-        if 'one' in expected:
+        
+        if text_has_one:
             if not plantuml_cards & one_like:
                 ok = False
                 explanation_parts.append(
-                    "Text suggests 'one', but diagram has no one-side cardinality."
+                    "Text suggests 'one' (no 'many' keyword found), but diagram has no one-side cardinality."
                 )
 
         if ok:
@@ -106,7 +112,7 @@ if __name__ == "__main__":
         print("Using custom input from command line arguments")
         print("=" * 80)
     else:
-        # Default example
+        # Default example - works out of the box
         print("=" * 80)
         print("Using default example (University domain)")
         print("To use your own: python actual_comparison.py text.txt diagram.puml")
