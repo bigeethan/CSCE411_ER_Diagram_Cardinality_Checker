@@ -36,7 +36,7 @@ Status: match
 
 ### Possible statuses:
 match — text and diagram agree
+
 mismatch — cardinalities conflict
-no_text_info — insufficient text data
 
 no_text_info — insufficient text data
