@@ -24,14 +24,18 @@ Instructor }o--|| Course : teaches
 ## Expected Output
 ### The program prints:
 Cardinality relationships extracted from the text
+
 Relationships parsed from the PlantUML diagram
+
 A comparison result for each relationship:
 
 ### Example:
 Relationship: College -- offers --> Course
+
 Status: match
 
 Relationship: Instructor -- teaches --> Course
+
 Status: match
 
 ### Possible statuses:
