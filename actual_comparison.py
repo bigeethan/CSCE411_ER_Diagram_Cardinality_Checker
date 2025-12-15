@@ -121,7 +121,7 @@ if __name__ == "__main__":
         text = """There are several colleges in the university. Each college has a name, location, and size. 
         A college offers many courses. Course#, name, and credit hours describe a course. 
         No two courses in any college have the same course#; likewise, no two courses have the same name. 
-        The college also has several instructors. Instructors teach; that is why they are called instructors. 
+        The college also employs several instructors. Instructors teach; that is why they are called instructors. 
         The same course is never taught by more than one instructor. Furthermore, instructors are capable of 
         teaching a variety of courses offered by the college. Instructors have unique employee IDs, and their 
         names, qualifications, and experience are also recorded."""

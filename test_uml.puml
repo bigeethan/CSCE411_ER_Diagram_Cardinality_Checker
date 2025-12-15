@@ -1,9 +1,9 @@
 @startuml
-entity College
-entity Course
-entity Instructor
+entity Store
+entity Product
+entity Employee
 
-College ||--o{ Course : offers
-College ||--o{ Instructor : has
-Instructor }o--|| Course : teaches
+Store ||--|{ Product : has
+Store ||--|{ Employee : has
+Employee }o--|{ Product : sells
 @enduml
